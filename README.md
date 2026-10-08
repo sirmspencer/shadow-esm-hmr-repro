@@ -49,10 +49,22 @@ Install and start the application:
 ```sh
 cd ../shadow-esm-hmr-repro
 npm install            # links ../min-component-library
-clojure -M -m shadow.cljs.devtools.cli watch app
+npm run build:watch
 ```
 
 Wait for `[:app] Build completed.`, then open http://localhost:9411
+
+The npm scripts wrap the Clojure CLI rather than calling the `shadow-cljs` binary, so
+that `deps.edn` stays the single source of the shadow-cljs version. That is what makes
+the `:local` override below work without a second, possibly conflicting version pinned
+in `package.json`.
+
+| Script | Purpose |
+|---|---|
+| `npm run build:watch` | watch build against the released shadow-cljs in `deps.edn` |
+| `npm run build:watch:local` | same, but against a local shadow-cljs checkout |
+| `npm run build:release` | release build |
+| `npm run clear-cache` | remove `.shadow-cljs` and `public/js` |
 
 The page shows `v1`.
 
@@ -153,7 +165,7 @@ cd <shadow-cljs checkout>
 lein javac                 # required: tools.deps does not compile shadow-cljs's Java sources
 
 cd <shadow-esm-hmr-repro>
-clojure -M:local -m shadow.cljs.devtools.cli watch app
+npm run build:watch:local
 ```
 
 shadow-cljs's own `deps.edn` expects the compiled classes in `target/classes`, which is
