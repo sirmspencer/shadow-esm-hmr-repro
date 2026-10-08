@@ -1,0 +1,13 @@
+{:paths ["src"]
+
+ ;; released version, so the bug reproduces out of the box
+ :deps  {thheller/shadow-cljs {:mvn/version "3.5.3"}}
+
+ :aliases
+ ;; Run with -M:local to swap in a local shadow-cljs checkout for testing a fix.
+ ;; Adjust :local/root to point at your checkout, and run `lein javac` there first:
+ ;; tools.deps does not compile the Java sources that shadow-cljs's own deps.edn
+ ;; expects to find in target/classes.
+ {:local
+  {:override-deps
+   {thheller/shadow-cljs {:local/root "../shadow-cljs"}}}}}

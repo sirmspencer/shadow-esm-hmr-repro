@@ -1,0 +1,8 @@
+{
+  "name": "shadow-esm-hmr-repro",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@ms/min-component-library": "file:../min-component-library"
+  }
+}
