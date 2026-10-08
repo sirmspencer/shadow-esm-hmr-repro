@@ -48,11 +48,11 @@ Install and start the application:
 
 ```sh
 cd ../shadow-esm-hmr-repro
-npm install            # links ../min-component-library
+npm install            # links ../min-component-library, installs playwright
 npm run build:watch
 ```
 
-Wait for `[:app] Build completed.`, then open http://localhost:9411
+Wait for `[:app] Build completed.`, then open http://localhost:9840
 
 The npm scripts wrap the Clojure CLI rather than calling the `shadow-cljs` binary, so
 that `deps.edn` stays the single source of the shadow-cljs version. That is what makes
@@ -62,11 +62,29 @@ in `package.json`.
 | Script | Purpose |
 |---|---|
 | `npm run build:watch` | watch build against the released shadow-cljs in `deps.edn` |
-| `npm run build:watch:local` | same, but against a local shadow-cljs checkout |
+| `npm run build:watch:local` | same, against a local shadow-cljs checkout |
 | `npm run build:release` | release build |
+| `npm run build:release:local` | release build against a local checkout |
+| `npm run stop` | stop this project's shadow-cljs server |
 | `npm run clear-cache` | remove `.shadow-cljs` and `public/js` |
 
-The page shows `v1`.
+Ports are pinned to 9840 (dev http), 9841 (server) and 9842 (nrepl). Leaving the
+server port unset lets shadow-cljs default to 9630 and auto-increment, which collides
+with other shadow-cljs projects on the same machine. The scripts also set
+`-Dshadow.repro=esm-hmr`, so the JVM can be found with
+`pgrep -f 'shadow.repro=esm-hmr'`; without it the command line is a bare classpath
+with nothing identifying the project, and `npm run stop` relies on that marker.
+
+## What the page shows
+
+Four signals, which together distinguish a hot reload from a full page load:
+
+| Signal | Behaviour |
+|---|---|
+| `library label` | the value exported by the library |
+| `clicks` | held in a `defonce` atom, survives hot reload, resets on page load |
+| `after-load count` | incremented by `^:dev/after-load` |
+| `page loaded at` | set once per page load, unchanged by hot reload |
 
 ## Reproduce
 
@@ -92,11 +110,11 @@ With the watch still running and the page open:
 
 ### Expected
 
-The page updates to `v2`.
+`library label` updates to `v2` while `clicks` and `page loaded at` stay as they were.
 
 ### Actual
 
-The page still shows `v1`. shadow-cljs reports a successful recompile, and the browser
+The label stays at `v1`. shadow-cljs reports a successful recompile, and the browser
 console reports:
 
 ```
@@ -107,13 +125,34 @@ reload-failed Error: Failed to load repro/core.cljs: Cannot redefine property: d
 
 ### Automated
 
-`probe.js` performs all three steps against a headless browser and prints the verdict:
+`probe.js` performs all three steps, then reports one of `NO UPDATE`,
+`HOT RELOAD` or `FULL REFRESH` based on the four signals above:
 
 ```sh
-cd shadow-esm-hmr-repro
-npm install playwright && npx playwright install chromium
+npx playwright install chromium     # once
 node probe.js v2
 ```
+
+Add `PROBE_HEADED=1` to open a real browser window with pauses, and to force a page
+refresh afterwards for contrast:
+
+```sh
+PROBE_HEADED=1 node probe.js v2
+```
+
+Against a patched shadow-cljs that run prints:
+
+```
+  before   label=v1 clicks=3 loaded-at=2:50:46 PM sentinel=alive
+  after    label=v2 clicks=3 loaded-at=2:50:46 PM sentinel=alive
+  VERDICT: HOT RELOAD (clicks and load time preserved)
+
+  --- now forcing a real page refresh, for contrast ---
+  refresh  label=v2 clicks=0 loaded-at=2:50:56 PM sentinel=gone
+```
+
+The label changing while `clicks` and `loaded-at` hold is only possible without a page
+load, which is what makes the verdict meaningful rather than just "the text changed".
 
 ## Cause
 
@@ -148,8 +187,9 @@ Object.defineProperties(a, {X: {enumerable: true, get: () => 2}});
 
 ## Fix
 
-Add `configurable: true` to the generated descriptor. With that change this
-reproduction hot reloads correctly and repeatedly, with no console errors.
+Add `configurable: true` to the generated descriptor, for `:dev` builds only. Hot
+reload is the only thing that re-evaluates a module, so release builds do not need it,
+and emitting it unconditionally changes release output.
 
 `__esModule` does not need changing. It is a data property redefined with an identical
 descriptor, which the specification permits as a no-op, which is why the error always
@@ -157,8 +197,8 @@ names a real export rather than `__esModule`.
 
 ## Verifying a local fix
 
-`deps.edn` carries a `:local` alias that swaps in a local shadow-cljs checkout. Point it
-at your checkout, then:
+`deps.edn` carries a `:local` alias that swaps in a local shadow-cljs checkout. Adjust
+its `:local/root` to point at your checkout, then:
 
 ```sh
 cd <shadow-cljs checkout>

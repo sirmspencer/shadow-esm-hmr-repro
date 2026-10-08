@@ -1,8 +1,14 @@
-{:builds
+;; All three ports are pinned explicitly. Leaving the server port unset lets
+;; shadow-cljs pick 9630 and auto-increment from there, which can collide with
+;; other shadow-cljs projects running on the same machine.
+{:http    {:port 9841}
+ :nrepl   {:port 9842}
+
+ :builds
  {:app
   {:target     :browser
    :output-dir "public/js"
    :asset-path "/js"
    :modules    {:main {:init-fn repro.core/init}}
    :devtools   {:http-root "public"
-                :http-port 9411}}}}
+                :http-port 9840}}}}
