@@ -1,7 +1,5 @@
 # shadow-cljs: hot reload fails for npm dependencies that ship ES modules
 
-*Written with LLM assistance.*
-
 Hot reload of any npm dependency whose output is an ES module fails with
 `TypeError: Cannot redefine property: <exportName>`. The recompile succeeds, then
 applying it in the browser throws, so the page silently keeps serving the previous
@@ -36,67 +34,19 @@ git clone https://github.com/sirmspencer/min-component-library.git
 git clone https://github.com/sirmspencer/shadow-esm-hmr-repro.git
 ```
 
-Build the library:
+## Reproduce
 
-```sh
+```
 cd min-component-library
-npm install
-npm run build          # tsc, emits build/index.js as ESM
+yarn dev
 ```
 
-Install and start the application:
-
-```sh
-cd ../shadow-esm-hmr-repro
-npm install            # links ../min-component-library, installs playwright
+```
+cd shadow-esm-hmr-repro
 npm run build:watch
 ```
 
-Wait for `[:app] Build completed.`, then open http://localhost:9840
-
-The npm scripts wrap the Clojure CLI rather than calling the `shadow-cljs` binary, so
-that `deps.edn` stays the single source of the shadow-cljs version. That is what makes
-the `:local` override below work without a second, possibly conflicting version pinned
-in `package.json`.
-
-| Script | Purpose |
-|---|---|
-| `npm run build:watch` | watch build against the released shadow-cljs in `deps.edn` |
-| `npm run build:watch:local` | same, against a local shadow-cljs checkout |
-| `npm run build:release` | release build |
-| `npm run build:release:local` | release build against a local checkout |
-| `npm run stop` | stop this project's shadow-cljs server |
-| `npm run clear-cache` | remove `.shadow-cljs` and `public/js` |
-
-Ports are pinned to 9840 (dev http), 9841 (server) and 9842 (nrepl). Leaving the
-server port unset lets shadow-cljs default to 9630 and auto-increment, which collides
-with other shadow-cljs projects on the same machine. The scripts also set
-`-Dshadow.repro=esm-hmr`, so the JVM can be found with
-`pgrep -f 'shadow.repro=esm-hmr'`; without it the command line is a bare classpath
-with nothing identifying the project, and `npm run stop` relies on that marker.
-
-## What the page shows
-
-Four signals, which together distinguish a hot reload from a full page load:
-
-| Signal | Behaviour |
-|---|---|
-| `library label` | the value exported by the library |
-| `clicks` | held in a `defonce` atom, survives hot reload, resets on page load |
-| `after-load count` | incremented by `^:dev/after-load` |
-| `page loaded at` | set once per page load, unchanged by hot reload |
-
-## Reproduce
-
-With the watch still running and the page open:
-
 1. In `min-component-library/src/index.ts`, change `label` from `"v1"` to `"v2"`
-
-2. Rebuild the library:
-
-   ```sh
-   cd min-component-library && npx tsc
-   ```
 
 3. Bump the library's `package.json` modification time:
 
